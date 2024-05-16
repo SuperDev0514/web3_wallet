@@ -19,7 +19,7 @@ import { getNetworkById, rpcMapping } from '../networks'
 import { getWalletInfoByChainId, useWalletAddressesHistory } from '../hooks'
 import { INITIAL_STATE, INITIAL_WALLET_STATE, WalletContext } from './WalletContext'
 import { QueryProvider } from './QueryProvider'
-import type { TErc20SendTokenOptions, TXDeFiWeb3Provider } from './types'
+import type { TChangeEvmNetworkOptions, TErc20SendTokenOptions, TXDeFiWeb3Provider } from './types'
 import { isBTClikeWallet, isCosmosWallet, isEvmWallet, isSolWallet } from '@/utils/wallet'
 import { BalanceProvider } from '@/components/balance/BalanceProvider'
 import { getBTCConnectedWallets } from '@/utils/btc'
@@ -136,12 +136,6 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
   const connectMetamask = async (chainId: number): Promise<boolean> => {
     if (!window.ethereum) {
       return false
-    }
-
-    // If already connected to the same wallet, just return
-    if (state.isConnected && state.name === 'MetaMask') {
-      console.log('[Wallet] Already connected...')
-      return true
     }
 
     const ethereum: any = window.ethereum
@@ -948,6 +942,27 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     // todo: add cosmos support
   }
 
+  const changeEvmNetwork = async (options: TChangeEvmNetworkOptions) => {
+    const { chainId, network } = options
+
+    if (isEvmWallet(state, chainId)) {
+      const provider = state.provider
+      try {
+        await provider.send('wallet_switchEthereumChain', [{ chainId: network.chainId }])
+      } catch (err: any) {
+        if (err.code === 4902) {
+          await provider.send('wallet_addEthereumChain', [
+            network
+          ])
+        } else {
+          throw new Error('[Wallet] changeEvmNetwork error: can`t addEthereumChain')
+        }
+      }
+    } else {
+      throw new Error(`[Wallet] changeEvmNetwork error: wallet with ${chainId} is not supported`)
+    }
+  }
+
   const erc20SendToken = async (options: TErc20SendTokenOptions) => {
     const { chainId, contractAddress, toAddress, decimals, amount } = options
     const currentName = chainId ? getActiveWalletName(walletState, chainId) : activeWalletNameRef.current
@@ -1070,6 +1085,7 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     disconnect,
     getNonce,
     walletState,
+
     erc20SendToken
   }), [state, walletAddressesHistory, waitForTransaction, getTransaction, restore, connect, changeNetwork, sendTx, disconnect, walletState])
 
