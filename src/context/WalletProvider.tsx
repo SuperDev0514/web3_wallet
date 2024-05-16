@@ -6,19 +6,22 @@ import type { ExternalProvider, TransactionRequest } from '@ethersproject/provid
 import type { Signer, Transaction } from '@solana/web3.js'
 import type { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom'
 import type { CosmosTransaction } from 'rango-sdk/lib'
-import type { BigNumber } from 'ethers'
+
+import type { TypedDataField } from 'ethers'
 import { ethers } from 'ethers'
 import { Web3Provider } from '@ethersproject/providers/'
 
 import type { Window as KeplrWindow } from '@keplr-wallet/types'
-import { EVM_CHAINS, LOCAL_STORAGE_WALLETS_KEY, NETWORK_IDS, SOL_CHAINS, WALLET_NAMES, WALLET_SUBNAME, chainWalletMap, cosmosChainWalletMap, isCosmosChain, isEvmChain, isSolChain } from '../constants'
-import type { TAvailableWalletNames, TWalletLocalData, TWalletState, TWalletStore } from '../types'
+
+import type { TypedData } from 'abitype'
+import { ERC20_GAS_LIMIT, EVM_CHAINS, LOCAL_STORAGE_WALLETS_KEY, NETWORK_IDS, SOL_CHAINS, WALLET_NAMES, WALLET_SUBNAME, chainWalletMap, cosmosChainWalletMap, isCosmosChain, isEvmChain, isSolChain } from '../constants'
+import type { SignTypedDataArgs, SignTypedDataResult, TAvailableWalletNames, TWalletLocalData, TWalletState, TWalletStore } from '../types'
 import { WALLET_STATUS } from '../types'
 import { getNetworkById, rpcMapping } from '../networks'
 import { getWalletInfoByChainId, useWalletAddressesHistory } from '../hooks'
 import { INITIAL_STATE, INITIAL_WALLET_STATE, WalletContext } from './WalletContext'
 import { QueryProvider } from './QueryProvider'
-import type { TErc20SendTokenOptions, TXDeFiWeb3Provider } from './types'
+import type { TChangeEvmNetworkOptions, TErc20SendTokenOptions, TXDeFiWeb3Provider } from './types'
 import { isBTClikeWallet, isCosmosWallet, isEvmWallet, isSolWallet } from '@/utils/wallet'
 import { BalanceProvider } from '@/components/balance/BalanceProvider'
 import { getBTCConnectedWallets } from '@/utils/btc'
@@ -871,12 +874,6 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     }
   }
 
-  const estimateGas = async (data: TransactionRequest): Promise<BigNumber | undefined> => {
-    if (state.provider && 'estimateGas' in state.provider) {
-      return state.provider.estimateGas(data)
-    }
-  }
-
   const fetchEvmWalletInfo = async (provider: Web3Provider) => {
     const address = await provider.getSigner().getAddress()
 
@@ -930,6 +927,27 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     // todo: add cosmos support
   }
 
+  const changeEvmNetwork = async (options: TChangeEvmNetworkOptions) => {
+    const { chainId, network } = options
+
+    if (isEvmWallet(state, chainId)) {
+      const provider = state.provider
+      try {
+        await provider.send('wallet_switchEthereumChain', [{ chainId: network.chainId }])
+      } catch (err: any) {
+        if (err.code === 4902) {
+          await provider.send('wallet_addEthereumChain', [
+            network
+          ])
+        } else {
+          throw new Error('[Wallet] changeEvmNetwork error: can`t addEthereumChain')
+        }
+      }
+    } else {
+      throw new Error(`[Wallet] changeEvmNetwork error: wallet with ${chainId} is not supported`)
+    }
+  }
+
   const erc20SendToken = async (options: TErc20SendTokenOptions) => {
     const { chainId, contractAddress, toAddress, decimals, amount } = options
     const currentName = chainId ? getActiveWalletName(walletState, chainId) : activeWalletNameRef.current
@@ -957,7 +975,8 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
 
         const tokensCount = ethers.utils.parseUnits(amount, decimals)
         const connection = await contract.connect(signer)
-        const result = await connection.transfer(toAddress, tokensCount, { gasLimit })
+
+        const result = await connection.transfer(toAddress, tokensCount, { gasLimit: ERC20_GAS_LIMIT })
 
         return result
       } catch (err: any) {
@@ -1009,7 +1028,6 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     addressDomain: state.addressDomain,
     balance: state.balance,
     connection: state.connection,
-    estimateGas,
     provider: state.provider,
     walletProvider: state.walletProvider,
     waitForTransaction,
@@ -1022,8 +1040,9 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     signMessage,
     disconnect,
     walletState,
+
     erc20SendToken
-  }), [state, walletAddressesHistory, estimateGas, waitForTransaction, getTransaction, restore, connect, changeNetwork, sendTx, disconnect, walletState])
+  }), [state, walletAddressesHistory, waitForTransaction, getTransaction, restore, connect, changeNetwork, sendTx, disconnect, walletState])
 
   return (
     <WalletContext.Provider

@@ -1,3 +1,4 @@
+import { ethers } from 'ethers'
 import type { TChainWallet, TChainsWithWalletsLink } from './types'
 
 export const WALLET_NAMES = /* #__PURE__ */ {
@@ -49,9 +50,14 @@ export const NETWORK_IDS = /* #__PURE__ */ {
   Cronos: 25,
   Boba: 288,
   Celo: 42220,
+  ZkSync: 324,
   Solana: -1,
   SolanaTestnet: -1001,
   TON: -3,
+  Base: 8453,
+  Mantle: 5000,
+  zkEVM: 1101,
+  Linea: 59144,
   Cosmos: -100,
   Osmosis: -101,
   Sifchain: -102,
@@ -133,6 +139,11 @@ export const CHAINS_WITH_WALLET: TChainsWithWalletsLink[] = /* #__PURE__ */ [
   }
 ]
 
+export const ERC20_GAS_LIMIT = 300000
+
 export const LOCAL_STORAGE_WALLETS_KEY = 'web3-wallets-data'
 
 export const LOCAL_STORAGE_WALLETS_ADDRESSES = 'web3-wallets-addresses'
+
+export const ETHEREUM_RPC = 'https://rpc.ankr.com/eth'
+export const ETHEREUM_PROVIDER = new ethers.providers.JsonRpcProvider(ETHEREUM_RPC)

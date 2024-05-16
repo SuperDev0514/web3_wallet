@@ -7,10 +7,10 @@ import type { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom'
 import type { Connection, Signer, Transaction } from '@solana/web3.js'
 import type WalletConnectProvider from '@walletconnect/web3-provider'
 import type { Narrow, TypedData, TypedDataDomain, TypedDataToPrimitiveTypes } from 'abitype'
-import type { BigNumber, ethers } from 'ethers'
+import type { ethers } from 'ethers'
 import type { CosmosTransaction } from 'rango-sdk/lib'
 import type { AVAILABLE_WALLETS_GROUPS_CONFIG, BTC_CHAINS, BTC_WALLETS_CONFIG, COSMOS_CHAINS, COSMOS_WALLETS_CONFIG, EVM_WALLETS_CONFIG, SOL_WALLETS_CONFIG, WALLET_NAMES } from './constants'
-import type { TErc20SendTokenOptions } from './context'
+import type { TChangeEvmNetworkOptions, TErc20SendTokenOptions } from './context'
 import type { XDeFi } from './provider'
 import type { BTClikeTransaction } from './provider/xDeFi/types'
 
@@ -119,13 +119,13 @@ type TWallet = {
   signTypedData: (options: SignTypedDataArgs<TypedData>) => Promise<SignTypedDataResult>
   disconnect: () => void
   getNonce: () => Promise<number>
-  estimateGas: (data: TransactionRequest) => Promise<BigNumber | undefined>
   waitForTransaction: (transactionHash: string, config?: { confirmations?: number; fromChainId?: number }) => Promise<void>
   getTransaction: (transactionHash: string) => Promise<ethers.providers.TransactionReceipt>
   connectedWallets: TConnectedWallet[]
   walletAddressesHistory: TWalletAddressesHistory
   walletState: TWalletState
   erc20SendToken: (options: TErc20SendTokenOptions) => Promise<void>
+  changeEvmNetwork: (options: TChangeEvmNetworkOptions) => Promise<void>
 } & TWalletStore
 
 type TWalletValues = typeof WALLET_NAMES[keyof typeof WALLET_NAMES]

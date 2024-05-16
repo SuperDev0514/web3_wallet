@@ -1,3 +1,5 @@
+import type { TransactionConfig } from '@gnosis.pm/safe-apps-sdk'
+import Web3 from 'web3'
 import { NETWORK_IDS } from './constants'
 
 const networksRaw = /* #__PURE__ */ [
@@ -153,6 +155,18 @@ const networksRaw = /* #__PURE__ */ [
     rpc_url: 'https://rpc.ftm.tools/',
     currency_name: 'Fantom',
     currency_symbol: 'FTM',
+    currency_decimals: 18,
+    is_testnet: false
+  },
+  {
+    chain_id: 324,
+    name: 'zkSync Era',
+    short_name: 'zkSync',
+    logo_url: 'https://cdn.via.exchange/networks/zkSync.svg',
+    explorer_url: 'https://explorer.zksync.io',
+    rpc_url: 'https://mainnet.era.zksync.io/',
+    currency_name: 'Ethereum',
+    currency_symbol: 'ETH',
     currency_decimals: 18,
     is_testnet: false
   },
@@ -567,6 +581,58 @@ const networksRaw = /* #__PURE__ */ [
     currency_symbol: 'CUBE',
     currency_decimals: 18,
     is_testnet: false
+  },
+  // Mantle
+  {
+    chain_id: NETWORK_IDS.Mantle,
+    name: 'Mantle',
+    short_name: 'mantle',
+    logo_url: 'https://cdn.via.exchange/networks/mantle.svg',
+    explorer_url: 'https://explorer.mantle.xyz/',
+    rpc_url: 'https://rpc.mantle.xyz',
+    currency_name: 'Mantle',
+    currency_symbol: 'MNT',
+    currency_decimals: 18,
+    is_testnet: false
+  },
+  // Base
+  {
+    chain_id: NETWORK_IDS.Base,
+    name: 'Base',
+    short_name: 'base',
+    logo_url: 'https://cdn.via.exchange/networks/base.svg',
+    explorer_url: 'https://basescan.org/',
+    rpc_url: 'https://mainnet.base.org',
+    currency_name: 'Base',
+    currency_symbol: 'ETH',
+    currency_decimals: 18,
+    is_testnet: false
+  },
+  // zkEVM
+  {
+    chain_id: NETWORK_IDS.zkEVM,
+    name: 'zkEVM',
+    short_name: 'zkevm',
+    logo_url: 'https://cdn.via.exchange/networks/zkevm.svg',
+    explorer_url: 'https://zkevm.polygonscan.com/',
+    rpc_url: 'https://zkevm-rpc.com/',
+    currency_name: 'ETH',
+    currency_symbol: 'ETH',
+    currency_decimals: 18,
+    is_testnet: false
+  },
+  // Linea
+  {
+    chain_id: NETWORK_IDS.Linea,
+    name: 'Linea',
+    short_name: 'linea',
+    logo_url: 'https://cdn.via.exchange/networks/linea.svg',
+    explorer_url: 'https://explorer.linea.build/',
+    rpc_url: 'https://linea-mainnet.infura.io/v3',
+    currency_name: 'ETH',
+    currency_symbol: 'ETH',
+    currency_decimals: 18,
+    is_testnet: false
   }
 ]
 
@@ -605,6 +671,24 @@ export const getNetworkById = (chainId: string | number) => {
   }
 
   throw new Error(`Unknown chainId ${chainId}`)
+}
+
+export const estimateGas = async (chainId: number, tx: TransactionConfig) => {
+  const rpcUrl = rpcMapping[chainId]
+
+  if (!rpcUrl) {
+    return null
+  }
+
+  const web3 = new Web3(rpcUrl)
+
+  try {
+    const gasEstimate = await web3.eth.estimateGas(tx)
+    return gasEstimate
+  } catch (error) {
+    console.error(`An error occurred while estimating gas: ${error}`)
+    throw error
+  }
 }
 
 export const supportedNetworkIds = /* #__PURE__ */ networks.map(net => net.chainID)
