@@ -6,11 +6,13 @@ import type { ExternalProvider, TransactionRequest } from '@ethersproject/provid
 import type { Signer, Transaction } from '@solana/web3.js'
 import type { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom'
 import type { CosmosTransaction } from 'rango-sdk/lib'
+
 import type { TypedDataField } from 'ethers'
 import { ethers } from 'ethers'
 import { Web3Provider } from '@ethersproject/providers/'
 
 import type { Window as KeplrWindow } from '@keplr-wallet/types'
+
 import type { TypedData } from 'abitype'
 import { ERC20_GAS_LIMIT, EVM_CHAINS, LOCAL_STORAGE_WALLETS_KEY, NETWORK_IDS, SOL_CHAINS, WALLET_NAMES, WALLET_SUBNAME, chainWalletMap, cosmosChainWalletMap, isCosmosChain, isEvmChain, isSolChain, WALLET_CONNECT_PROJECT_ID } from '../constants'
 import type { SignTypedDataArgs, SignTypedDataResult, TAvailableWalletNames, TWalletLocalData, TWalletState, TWalletStore } from '../types'
@@ -19,14 +21,15 @@ import { getNetworkById, rpcMapping } from '../networks'
 import { getWalletInfoByChainId, useWalletAddressesHistory } from '../hooks'
 import { INITIAL_STATE, INITIAL_WALLET_STATE, WalletContext } from './WalletContext'
 import { QueryProvider } from './QueryProvider'
-import type { TErc20SendTokenOptions, TXDeFiWeb3Provider } from './types'
+import type { TChangeEvmNetworkOptions, TErc20SendTokenOptions, TXDeFiWeb3Provider } from './types'
 import { isBTClikeWallet, isCosmosWallet, isEvmWallet, isSolWallet } from '@/utils/wallet'
 import { BalanceProvider } from '@/components/balance/BalanceProvider'
 import { getBTCConnectedWallets } from '@/utils/btc'
 import { XDeFi } from '@/provider'
 import type { BTClikeTransaction } from '@/provider/xDeFi/types'
 import { ERRCODE, ERROR_MESSAGE, RejectRequestError } from '@/errors'
-import { getActiveWalletName, getAddresesInfo, goKeplr, goMetamask, goPhantom, inIframe, mapRawWalletSubName, normalizeChainId, shortenAddress } from '@/utils/common'
+
+import { getActiveWalletName, getAddresesInfo, goKeplr, goMetamask, goPhantom, inIframe, mapRawWalletSubName, shortenAddress } from '@/utils/common'
 import { executeCosmosTransaction, getCosmosConnectedWallets } from '@/utils/cosmos'
 import { detectNewTxFromAddress, getDomainAddress } from '@/utils/evm'
 import { getCluster, parseEnsFromSolanaAddress } from '@/utils/solana'
@@ -136,12 +139,6 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
   const connectMetamask = async (chainId: number): Promise<boolean> => {
     if (!window.ethereum) {
       return false
-    }
-
-    // If already connected to the same wallet, just return
-    if (state.isConnected && state.name === 'MetaMask') {
-      console.log('[Wallet] Already connected...')
-      return true
     }
 
     const ethereum: any = window.ethereum
@@ -274,24 +271,24 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     return true
   }
 
-  const connectWC = async (chainId: number): Promise<boolean> => {
+  const connectWC = async (chainId: number, projectId: string): Promise<boolean> => {
     updateWalletState('WalletConnect', { status: WALLET_STATUS.LOADING })
 
     const wcChainId = isEvmChain(chainId) ? chainId : 1
 
     try {
-      const WalletConnectPackage = await import('@walletconnect/ethereum-provider')
-      const { EthereumProvider } = WalletConnectPackage
 
-      const ethereumProvider = await EthereumProvider.init({
-        projectId: WALLET_CONNECT_PROJECT_ID,
-        chains: EVM_CHAINS as any,
-        showQrModal: false
+      const { EthereumProvider } = await import('@walletconnect/ethereum-provider')
+
+      const provider = await EthereumProvider.init({
+        projectId,
+        showQrModal: true,
+        chains: Object.keys(rpcMapping).map(chainId => Number(chainId))
       })
 
-      await ethereumProvider.connect()
+      await provider.enable()
 
-      const web3Provider = new Web3Provider(ethereumProvider, 'any')
+      const web3Provider = new Web3Provider(provider, 'any')
 
       const {
         chainId: walletChainId,
@@ -300,37 +297,33 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
         addressDomain
       } = await fetchEvmWalletInfo(web3Provider)
 
-      const rawSubName = ethereumProvider.namespace
-      const subName = rawSubName ? mapRawWalletSubName(rawSubName) : null
 
-      ethereumProvider.on('disconnect', (args) => {
-        const { code, message } = args
-        console.log('WalletConnectProvider disconnected', code, message)
+      provider.on('disconnect', ({ code, message }) => {
+        console.log('provider disconnected', code, message)
         disconnect() // todo: only clear state (without duplicate code and disconnect events)
       })
-      ethereumProvider.on('chainChanged', evmChainChangeHandler)
-      ethereumProvider.on('accountsChanged', evmAccountChangeHandler)
+      provider.on('chainChanged', evmChainChangeHandler)
+      provider.on('accountsChanged', evmAccountChangeHandler)
 
       addWalletAddress({ [address]: EVM_CHAINS })
       updateWalletState('WalletConnect', {
         isConnected: true,
         status: WALLET_STATUS.READY,
         name: WALLET_NAMES.WalletConnect,
-        subName,
         provider: web3Provider,
-        walletProvider: ethereumProvider,
+
+        walletProvider: provider,
         chainId: walletChainId,
         address,
         addressShort,
         addressDomain
       })
 
-      localStorage.setItem('web3-wallets-name', WALLET_NAMES.WalletConnect)
+      localStorage.setItem('web3-wallets-name', WALLET_NAMES.Wallet)
       localStorage.setItem(
         LOCAL_STORAGE_WALLETS_KEY,
         JSON.stringify({
           name: WALLET_NAMES.WalletConnect,
-          subName,
           chainId: wcChainId,
           address: addressDomain || addressShort
         })
@@ -527,7 +520,7 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     }
   }
 
-  const connect = async ({ name, chainId }: { name: string; chainId: number }): Promise<boolean> => {
+  const connect = async ({ name, chainId, projectId }: { name: string; chainId: number; projectId?: string }): Promise<boolean> => {
     console.log('[Wallet] connect()', name, chainId)
     if (!(Object.values(WALLET_NAMES) as string[]).includes(name)) {
       console.error(`[Wallet] Unknown wallet name: ${name}`)
@@ -553,8 +546,12 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     }
 
     if (name === WALLET_NAMES.WalletConnect) {
+      if (!projectId) {
+        throw new Error('WalletConnect projectId is required')
+      }
+
       updateActiveWalletName('WalletConnect')
-      return connectWC(chainId)
+      return connectWC(chainId, projectId)
     }
 
     if (name === WALLET_NAMES.xDefi) {
@@ -665,10 +662,8 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     if (isEvmWallet(state)) {
       if (state.walletProvider) {
         // @ts-expect-error-next-line WalletConnect Provider
-        if (state.walletProvider.removeAllListeners) {
-          // @ts-expect-error-next-line WalletConnect Provider
-          state.walletProvider.removeAllListeners()
-        }
+
+        state.walletProvider.removeAllListeners()
         // @ts-expect-error-next-line WalletConnect Provider
         if (state.walletProvider?.disconnect) {
           // @ts-expect-error-next-line WalletConnect Provider
@@ -700,23 +695,6 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     localStorage.removeItem('web3-wallets-name')
     localStorage.removeItem(LOCAL_STORAGE_WALLETS_KEY)
     localStorage.removeItem('isFirstInited')
-  }
-
-  const getNonce = async () => {
-    const currentName = activeWalletNameRef.current
-
-    if (!currentName) {
-      throw new Error('Wallet is not connected')
-    }
-
-    const currentState = walletState[currentName]
-    const isEvmConnected = isEvmWallet(currentState)
-    if (!isEvmConnected || !currentState.address) {
-      throw new Error('Wallet is not connected')
-    }
-
-    const { provider } = currentState
-    return provider.getTransactionCount(currentState.address)
   }
 
   const evmAccountChangeHandler = async (accounts: string[]) => {
@@ -957,6 +935,27 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     // todo: add cosmos support
   }
 
+  const changeEvmNetwork = async (options: TChangeEvmNetworkOptions) => {
+    const { chainId, network } = options
+
+    if (isEvmWallet(state, chainId)) {
+      const provider = state.provider
+      try {
+        await provider.send('wallet_switchEthereumChain', [{ chainId: network.chainId }])
+      } catch (err: any) {
+        if (err.code === 4902) {
+          await provider.send('wallet_addEthereumChain', [
+            network
+          ])
+        } else {
+          throw new Error('[Wallet] changeEvmNetwork error: can`t addEthereumChain')
+        }
+      }
+    } else {
+      throw new Error(`[Wallet] changeEvmNetwork error: wallet with ${chainId} is not supported`)
+    }
+  }
+
   const erc20SendToken = async (options: TErc20SendTokenOptions) => {
     const { chainId, contractAddress, toAddress, decimals, amount } = options
     const currentName = chainId ? getActiveWalletName(walletState, chainId) : activeWalletNameRef.current
@@ -977,48 +976,20 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
           signer
         )
 
+        const gasPrice = await signer.getGasPrice()
+        const gasLimit = contract.estimateGas
+
+        console.log('gasPrice', gasPrice, gasLimit)
+
         const tokensCount = ethers.utils.parseUnits(amount, decimals)
         const connection = await contract.connect(signer)
+
         const result = await connection.transfer(toAddress, tokensCount, { gasLimit: ERC20_GAS_LIMIT })
 
         return result
       } catch (err: any) {
         if (err.code === ERRCODE.UserRejected || err.code === ERROR_MESSAGE.MetaMask) {
-          console.warn('[Wallet] User rejected the request')
-          throw new RejectRequestError()
-        }
-        throw err
-      }
-    } else {
-      throw new Error('[Wallet] erc20SendToken error: wallet is not supported')
-    }
-  }
-
-  const signTypedData = ({
-    domain,
-    types,
-    value
-  }: SignTypedDataArgs<TypedData>): Promise<SignTypedDataResult> => {
-    const { chainId: chainId_ } = domain
-    const chainId = chainId_ ? normalizeChainId(chainId_) : undefined
-
-    const currentName = chainId ? getActiveWalletName(walletState, chainId) : activeWalletNameRef.current
-
-    if (!currentName) {
-      throw new Error('[Wallet] signTypedData error: no wallet name')
-    }
-
-    const currentState = walletState[currentName]
-
-    if (isEvmWallet(currentState, chainId)) {
-      try {
-        const signer = currentState.provider!.getSigner()
-
-        // Method name may be changed in the future, see https://docs.ethers.io/v5/api/signer/#Signer-signTypedData
-        return signer._signTypedData(domain, types as unknown as Record<string, TypedDataField[]>, value)
-      } catch (err: any) {
-        if (err.code === ERRCODE.UserRejected || err.code === ERROR_MESSAGE.MetaMask) {
-          console.warn('[Wallet] User rejected the request')
+          console.warn('[Wallet] User rejected the reques t')
           throw new RejectRequestError()
         }
         throw err
@@ -1075,10 +1046,9 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     connectedWallets: state.connectedWallets,
     sendTx,
     signMessage,
-    signTypedData,
     disconnect,
-    getNonce,
     walletState,
+
     erc20SendToken
   }), [state, walletAddressesHistory, waitForTransaction, getTransaction, restore, connect, changeNetwork, sendTx, disconnect, walletState])
 
