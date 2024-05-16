@@ -14,7 +14,7 @@ import { Web3Provider } from '@ethersproject/providers/'
 import type { Window as KeplrWindow } from '@keplr-wallet/types'
 
 import type { TypedData } from 'abitype'
-import { ERC20_GAS_LIMIT, EVM_CHAINS, LOCAL_STORAGE_WALLETS_KEY, NETWORK_IDS, SOL_CHAINS, WALLET_NAMES, WALLET_SUBNAME, chainWalletMap, cosmosChainWalletMap, isCosmosChain, isEvmChain, isSolChain } from '../constants'
+import { ERC20_GAS_LIMIT, EVM_CHAINS, LOCAL_STORAGE_WALLETS_KEY, NETWORK_IDS, SOL_CHAINS, WALLET_NAMES, WALLET_SUBNAME, chainWalletMap, cosmosChainWalletMap, isCosmosChain, isEvmChain, isSolChain, WALLET_CONNECT_PROJECT_ID } from '../constants'
 import type { SignTypedDataArgs, SignTypedDataResult, TAvailableWalletNames, TWalletLocalData, TWalletState, TWalletStore } from '../types'
 import { WALLET_STATUS } from '../types'
 import { getNetworkById, rpcMapping } from '../networks'
@@ -277,6 +277,7 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     const wcChainId = isEvmChain(chainId) ? chainId : 1
 
     try {
+
       const { EthereumProvider } = await import('@walletconnect/ethereum-provider')
 
       const provider = await EthereumProvider.init({
@@ -296,6 +297,7 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
         addressDomain
       } = await fetchEvmWalletInfo(web3Provider)
 
+
       provider.on('disconnect', ({ code, message }) => {
         console.log('provider disconnected', code, message)
         disconnect() // todo: only clear state (without duplicate code and disconnect events)
@@ -309,6 +311,7 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
         status: WALLET_STATUS.READY,
         name: WALLET_NAMES.WalletConnect,
         provider: web3Provider,
+
         walletProvider: provider,
         chainId: walletChainId,
         address,
@@ -659,6 +662,7 @@ const WalletProvider = function WalletProvider({ children }: { children: ReactNo
     if (isEvmWallet(state)) {
       if (state.walletProvider) {
         // @ts-expect-error-next-line WalletConnect Provider
+
         state.walletProvider.removeAllListeners()
         // @ts-expect-error-next-line WalletConnect Provider
         if (state.walletProvider?.disconnect) {

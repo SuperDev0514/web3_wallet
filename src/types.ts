@@ -5,6 +5,7 @@ import type { Keplr } from '@keplr-wallet/types'
 import type { MetaMaskInpageProvider } from '@metamask/providers'
 import type { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom'
 import type { Connection, Signer, Transaction } from '@solana/web3.js'
+
 import type EthereumProvider from '@walletconnect/ethereum-provider'
 import type { Narrow, TypedData, TypedDataDomain, TypedDataToPrimitiveTypes } from 'abitype'
 import type { ethers } from 'ethers'
