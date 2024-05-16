@@ -1,3 +1,8 @@
+<p align="center"><a href="https://via.exchange" target="_blank"><img alt="Via Protocol is the most advanced cross-chain aggregation protocol" src="https://user-images.githubusercontent.com/55061526/185308497-3d70e503-d4c8-4b9f-a5fd-9bf9083c4793.png" width="100%">
+</a>
+</p>
+
+
 # Web3 wallets
 > Universal adapter to Ethereum and Solana
 
@@ -9,10 +14,22 @@
 ## Features
 
 - 🚀 Built-in functions for working with signatures, connecting wallets, tracking the status of transactions, ENS names, and more.
-- 💼 Built-in wallet connectors for MetaMask, WalletConnect, Coinbase Wallet, Keplr, xDeFi, Phantom (Solana) and Injected wallets.
+- 💼 Built-in wallet connectors for MetaMask, WalletConnect, Coinbase Wallet, Keplr, xDefi, Phantom (Solana) and Injected wallets.
 - 🌀 Auto-refresh data on wallet, block, and network changes
 - 🦄 TypeScript ready
 - 🌏 All supported networks are in [networks.ts](https://github.com/viaprotocol/web3-wallets/blob/main/src/networks.ts)
+
+
+## Supported wallets
+
+- MetaMask
+- WalletConnect (all WalletConnect-compatible wallets are supported, **>100 wallets!**)
+- Coinbase Wallet
+- Phantom (Solana)
+- Keplr (Cosmos, Osmosis, Astar)
+- xDeFi (EVM networks, Bitcoin, Bitcoin Cash, Litecoin)
+- Safe (aka Gnosis Safe Multisig Wallet)
+
 
 ## Installation
 
@@ -24,9 +41,17 @@ yarn add @viaprotocol/web3-wallets
 
 ```tsx
 import { useContext } from 'react'
-import { WalletContext } from '@/web3-wallets'
+import { WalletContext, WalletProvider } from '@viaprotocol/web3-wallets'
 
 function App() {
+  return (
+    <WalletProvider>
+      <NestedComponent />
+    </WalletProvider>
+  )
+}
+
+function NestedComponent() {
   const { connect, isConnected, address } = useContext(WalletContext)
 
   if (!isConnected) {
@@ -34,7 +59,7 @@ function App() {
       // Select MetaMask and connect to ETH Mainnet
       <button
         type="button"
-        onClick={connect({ name: 'MetaMask', chainId: 1 })}
+        onClick={() => connect({ name: 'MetaMask', chainId: 1 })}
       >Connect wallet</button>
     )
   }
@@ -44,15 +69,6 @@ function App() {
   )
 }
 ```
-
-## Supported wallets
-
-- MetaMask
-- WalletConnect (all WalletConnect-compatible wallets are supported, >100 wallets!)
-- Coinbase Wallet
-- Phantom (Solana)
-– Keplr (Cosmos, Osmosis, Astar)
-– xDeFi (EVM networks, Bitcoin, Bitcoin Cash, Litecoin)
 
 
 ## Local development

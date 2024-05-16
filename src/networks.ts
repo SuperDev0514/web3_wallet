@@ -1,4 +1,8 @@
-const networksRaw = [
+import type { TransactionConfig } from '@gnosis.pm/safe-apps-sdk'
+import Web3 from 'web3'
+import { NETWORK_IDS } from './constants'
+
+const networksRaw = /* #__PURE__ */ [
   // Ethereum
   {
     chain_id: 1,
@@ -151,6 +155,18 @@ const networksRaw = [
     rpc_url: 'https://rpc.ftm.tools/',
     currency_name: 'Fantom',
     currency_symbol: 'FTM',
+    currency_decimals: 18,
+    is_testnet: false
+  },
+  {
+    chain_id: 324,
+    name: 'zkSync Era',
+    short_name: 'zkSync',
+    logo_url: 'https://cdn.via.exchange/networks/zkSync.svg',
+    explorer_url: 'https://explorer.zksync.io',
+    rpc_url: 'https://mainnet.era.zksync.io/',
+    currency_name: 'Ethereum',
+    currency_symbol: 'ETH',
     currency_decimals: 18,
     is_testnet: false
   },
@@ -491,6 +507,7 @@ const networksRaw = [
     currency_decimals: 18,
     is_testnet: false
   },
+  // BTC-like networks
   {
     chain_id: -200,
     name: 'Bitcoin',
@@ -507,7 +524,7 @@ const networksRaw = [
     chain_id: -201,
     name: 'Litecoin',
     short_name: 'LTC',
-    logo_url: 'https://loutre.blockchair.io/assets/svg/chains/litecoin.svg',
+    logo_url: 'https://cdn.via.exchange/networks/Litecoin.svg',
     explorer_url: 'https://blockchair.com/litecoin/',
     rpc_url: '',
     currency_name: 'Litecoin',
@@ -519,12 +536,24 @@ const networksRaw = [
     chain_id: -202,
     name: 'Bitcoin Cash',
     short_name: 'BCH',
-    logo_url: 'https://loutre.blockchair.io/assets/svg/chains/bitcoin-cash.svg',
+    logo_url: 'https://cdn.via.exchange/networks/BitcoinCash.svg',
     explorer_url: 'https://www.blockchain.com/bch/',
     rpc_url: '',
     currency_name: 'Bitcoin Cash',
     currency_symbol: 'BCH',
     currency_decimals: 8,
+    is_testnet: false
+  },
+  {
+    chain_id: NETWORK_IDS.Tron,
+    name: 'Tron',
+    short_name: 'Tron',
+    logo_url: 'https://cdn.via.exchange/networks/BitcoinCash.svg',
+    explorer_url: 'https://tronscan.org/#/',
+    rpc_url: '',
+    currency_name: 'TRON',
+    currency_symbol: 'TRX',
+    currency_decimals: 6,
     is_testnet: false
   },
   // KuCoin Chain (KCC)
@@ -552,10 +581,62 @@ const networksRaw = [
     currency_symbol: 'CUBE',
     currency_decimals: 18,
     is_testnet: false
+  },
+  // Mantle
+  {
+    chain_id: NETWORK_IDS.Mantle,
+    name: 'Mantle',
+    short_name: 'mantle',
+    logo_url: 'https://cdn.via.exchange/networks/mantle.svg',
+    explorer_url: 'https://explorer.mantle.xyz/',
+    rpc_url: 'https://rpc.mantle.xyz',
+    currency_name: 'Mantle',
+    currency_symbol: 'MNT',
+    currency_decimals: 18,
+    is_testnet: false
+  },
+  // Base
+  {
+    chain_id: NETWORK_IDS.Base,
+    name: 'Base',
+    short_name: 'base',
+    logo_url: 'https://cdn.via.exchange/networks/base.svg',
+    explorer_url: 'https://basescan.org/',
+    rpc_url: 'https://mainnet.base.org',
+    currency_name: 'Base',
+    currency_symbol: 'ETH',
+    currency_decimals: 18,
+    is_testnet: false
+  },
+  // zkEVM
+  {
+    chain_id: NETWORK_IDS.zkEVM,
+    name: 'zkEVM',
+    short_name: 'zkevm',
+    logo_url: 'https://cdn.via.exchange/networks/zkevm.svg',
+    explorer_url: 'https://zkevm.polygonscan.com/',
+    rpc_url: 'https://zkevm-rpc.com/',
+    currency_name: 'ETH',
+    currency_symbol: 'ETH',
+    currency_decimals: 18,
+    is_testnet: false
+  },
+  // Linea
+  {
+    chain_id: NETWORK_IDS.Linea,
+    name: 'Linea',
+    short_name: 'linea',
+    logo_url: 'https://cdn.via.exchange/networks/linea.svg',
+    explorer_url: 'https://explorer.linea.build/',
+    rpc_url: 'https://linea-mainnet.infura.io/v3',
+    currency_name: 'ETH',
+    currency_symbol: 'ETH',
+    currency_decimals: 18,
+    is_testnet: false
   }
 ]
 
-const networks = networksRaw.map(item => ({
+const networks = /* #__PURE__ */ networksRaw.map(item => ({
   ...item,
   chainID: item.chain_id,
   icon: item.logo_url,
@@ -578,7 +659,7 @@ const networks = networksRaw.map(item => ({
   }
 }))
 
-export const rpcMapping = networksRaw.reduce((mapper: { [chainId: number]: string }, network) => {
+export const rpcMapping = /* #__PURE__ */ networksRaw.reduce((mapper: { [chainId: number]: string }, network) => {
   mapper[network.chain_id] = network.rpc_url
   return mapper
 }, {})
@@ -592,6 +673,24 @@ export const getNetworkById = (chainId: string | number) => {
   throw new Error(`Unknown chainId ${chainId}`)
 }
 
-export const supportedNetworkIds = networks.map(net => net.chainID)
+export const estimateGas = async (chainId: number, tx: TransactionConfig) => {
+  const rpcUrl = rpcMapping[chainId]
+
+  if (!rpcUrl) {
+    return null
+  }
+
+  const web3 = new Web3(rpcUrl)
+
+  try {
+    const gasEstimate = await web3.eth.estimateGas(tx)
+    return gasEstimate
+  } catch (error) {
+    console.error(`An error occurred while estimating gas: ${error}`)
+    throw error
+  }
+}
+
+export const supportedNetworkIds = /* #__PURE__ */ networks.map(net => net.chainID)
 
 export default networks

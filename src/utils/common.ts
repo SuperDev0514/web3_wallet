@@ -1,27 +1,22 @@
-import { PublicKey } from '@solana/web3.js'
-import type { BytesLike } from 'ethers'
-import { ethers } from 'ethers'
-import type { Hexable } from 'ethers/lib/utils'
 import isMobile from 'ismobilejs'
 
 import {
+  CHAINS_WITH_WALLET,
   COSMOS_CHAINS,
+  ETHEREUM_PROVIDER,
   EVM_BASE_TOKEN_ADDRESS,
   EVM_ENS_POSTFIX,
   NETWORK_IDS,
   SOLANA_BASE_TOKEN_ADDRESS,
   SOLANA_ENS_POSTFIX,
-  SOL_CHAINS,
-  WALLET_SUBNAME
+  isEvmChain
 } from '../constants'
+import type { TChainWallet, TConnectedWallet, TWalletState, TWalletsTypeList } from '../types'
+import { WALLET_STATUS } from '../types'
+import { getNetworkById, supportedNetworkIds } from '../networks'
 import { checkEnsValid, parseAddressFromEnsSolana } from './solana'
-import { getNetworkById, supportedNetworkIds } from '@/networks'
 
-export const { BigNumber } = ethers
-
-export const toHex = (value: BytesLike | Hexable | number | bigint) => ethers.utils.hexlify(value)
-
-const addressRegExpList = {
+const addressRegExpList = /* #__PURE__ */ {
   [NETWORK_IDS.TON]: /^[a-zA-Z0-9_-]*$/,
   [NETWORK_IDS.TONTestnet]: /^[a-zA-Z0-9_-]*$/,
   [NETWORK_IDS.Cosmos]: /^(cosmos1)[0-9a-z]{38}$/,
@@ -29,20 +24,17 @@ const addressRegExpList = {
   [NETWORK_IDS.Sifchain]: /^(sif1)[0-9a-z]{38}$/,
   [NETWORK_IDS.BTC]: /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^(bc1)[0-9A-Za-z]{39,59}$/,
   [NETWORK_IDS.Litecoin]: /^(L|M|3)[A-Za-z0-9]{33}$|^(ltc1)[0-9A-Za-z]{39}$/,
-  [NETWORK_IDS.BCH]: /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^[0-9A-Za-z]{42,42}$/
+  [NETWORK_IDS.BCH]: /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^[0-9A-Za-z]{42,42}$/,
+  [NETWORK_IDS.Tron]: /^T[a-zA-Z0-9]{33}$/
 }
 
-export const isEvmChain = (chainId: number) => chainId > 0
-export const isCosmosChain = (chainId: number) => COSMOS_CHAINS.includes(chainId as any)
-export const isSolChain = (chainId: number) => SOL_CHAINS.includes(chainId as any)
-
 export const isValidAddress = async (chainId: number, address: string) => {
+  const { ethers } = await import('ethers')
   if (isEvmChain(chainId)) {
     // Chain ID > 0 === EVM-like network
     if (address.slice(-4) === EVM_ENS_POSTFIX) {
-      const rpc = getNetworkById(NETWORK_IDS.Ethereum).rpc_url
-      const provider = new ethers.providers.JsonRpcProvider(rpc)
-      const result = await provider.resolveName(address)
+      const result = await ETHEREUM_PROVIDER.resolveName(address)
+      console.log('[isValidAddress]', address)
       return !!result
     }
     return ethers.utils.isAddress(address)
@@ -53,7 +45,8 @@ export const isValidAddress = async (chainId: number, address: string) => {
         await checkEnsValid(address)
         return true
       }
-      return Boolean(new PublicKey(address))
+      const { PublicKey } = await import('@solana/web3.js')
+      return Boolean(/* #__PURE__ */ new PublicKey(address))
     } catch (e) {
       return false
     }
@@ -72,11 +65,12 @@ export const isValidAddress = async (chainId: number, address: string) => {
   }
 
   if (chainId === NETWORK_IDS.Cosmos
-      || chainId === NETWORK_IDS.Osmosis
-      || chainId === NETWORK_IDS.Sifchain
-      || chainId === NETWORK_IDS.BTC
-      || chainId === NETWORK_IDS.BCH
-      || chainId === NETWORK_IDS.Litecoin) {
+    || chainId === NETWORK_IDS.Osmosis
+    || chainId === NETWORK_IDS.Sifchain
+    || chainId === NETWORK_IDS.BTC
+    || chainId === NETWORK_IDS.BCH
+    || chainId === NETWORK_IDS.Litecoin
+    || chainId === NETWORK_IDS.Tron) {
     return addressRegExpList[chainId].test(address)
   }
 
@@ -101,7 +95,7 @@ export const getAddressUrl = (chainId: number, address: string) => {
   }
 
   const network = getNetworkById(chainId)
-  const explorerUrl = network.data.params[0].blockExplorerUrls[0]
+  const explorerUrl = network.data.params[0]!.blockExplorerUrls[0]
 
   if (isEvmChain(network.chain_id) || [NETWORK_IDS.Solana, ...COSMOS_CHAINS].includes(network.chain_id as any)) {
     return `${explorerUrl}/address/${address}`
@@ -120,7 +114,7 @@ export const getTxUrl = (chainId: number, txHash: string): string | undefined =>
   }
 
   const network = getNetworkById(chainId)
-  const explorerUrl = network.data.params[0].blockExplorerUrls[0]
+  const explorerUrl = network.data.params[0]!.blockExplorerUrls[0]
 
   if (network.chain_id > 0 || [NETWORK_IDS.Solana].includes(network.chain_id as any)) {
     return `${explorerUrl}/tx/${txHash}`
@@ -151,9 +145,8 @@ export const parseAddressFromEns = async (input: string) => {
   }
 
   if (input.slice(-4) === EVM_ENS_POSTFIX) {
-    const rpc = getNetworkById(NETWORK_IDS.Ethereum).rpc_url
-    const provider = new ethers.providers.JsonRpcProvider(rpc)
-    return provider.resolveName(input) as Promise<string>
+    console.log('[parseAddressFromEns]', input)
+    return ETHEREUM_PROVIDER.resolveName(input) as Promise<string>
   }
   return input
 }
@@ -163,8 +156,7 @@ const openLink = (url: string) => window?.open(url, '_blank')
 export const goMetamask = () => {
   if (isMobile(window.navigator).any) {
     const locationHref = window.location.href
-    let locationHrefNoProtocol = locationHref.replace('http://', '')
-    locationHrefNoProtocol = locationHrefNoProtocol.replace('https://', '')
+    const locationHrefNoProtocol = locationHref.replace(/https?:\/\//, '')
     window.location.href = `https://metamask.app.link/dapp/${locationHrefNoProtocol}`
   } else {
     openLink('https://chrome.google.com/webstore/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn')
@@ -175,9 +167,60 @@ export const goPhantom = () => openLink('https://chrome.google.com/webstore/deta
 
 export const goKeplr = () => openLink('https://chrome.google.com/webstore/detail/keplr/dmkamcknogkgcdfhhbddcghachkejeap')
 
-export const mapRawWalletSubName = (subName: string) => {
-  if (subName.toLowerCase().includes('gnosis safe')) {
-    return WALLET_SUBNAME.GnosisSafe
+export const getActiveWallets = (walletState: TWalletState, wallets: TWalletsTypeList[]) => {
+  return wallets.find(
+    walletName => walletState[walletName].status === WALLET_STATUS.READY
+  )
+}
+
+export const getActiveWalletName = (walletState: TWalletState, chainId: number) => {
+  const walletsData = CHAINS_WITH_WALLET.find(({ chains }) => chains.includes(chainId))
+
+  if (!walletsData) {
+    throw new Error(`getActiveWalletName: not implemented for chainId ${chainId}`)
   }
-  return subName
+
+  const { wallets } = walletsData
+
+  return getActiveWallets(walletState, wallets)
+}
+
+export const getConnectedWallets = async (walletMap: TChainWallet[], getAccounts: (data: TChainWallet) => Promise<string[]>): Promise<TConnectedWallet[]> => {
+  const connectedWallets: TConnectedWallet[] = []
+
+  for (let i = 0; i < walletMap.length; i++) {
+    const data = walletMap[i] as TChainWallet
+
+    const address = await getAccounts(data)
+
+    if (!!address && address.length > 0) {
+      const { name, chainId } = data
+      connectedWallets.push({ chainId, blockchain: name, addresses: address })
+    }
+  }
+
+  return connectedWallets
+}
+
+export const getAddresesInfo = (connectedWallets: TConnectedWallet[]) => connectedWallets.reduce((acc, { addresses, chainId }) => ({ ...acc, [addresses[0] as string]: [chainId] }), {})
+
+export const inIframe = () => {
+  try {
+    return window.self !== window.top
+  } catch (e) {
+    return true
+  }
+}
+
+export function normalizeChainId(chainId: string | number | bigint) {
+  if (typeof chainId === 'string') {
+    return Number.parseInt(
+      chainId,
+      chainId.trim().substring(0, 2) === '0x' ? 16 : 10
+    )
+  }
+  if (typeof chainId === 'bigint') {
+    return Number(chainId)
+  }
+  return chainId
 }

@@ -1,10 +1,11 @@
 import { createContext } from 'react'
+import { WALLET_NAMES } from '../constants'
 
-import type { TWallet, TWalletStoreState } from '../types'
-import { WalletStatusEnum } from '../types'
+import type { TWallet, TWalletState, TWalletStore } from '../types'
+import { WALLET_STATUS } from '../types'
 
-const INITIAL_STATE: TWalletStoreState = {
-  status: WalletStatusEnum.NOT_INITED,
+const INITIAL_STATE: TWalletStore = /* #__PURE__ */ {
+  status: WALLET_STATUS.NOT_INITED,
   isConnected: false, // TODO: Remove (use status)
   name: null,
   subName: null,
@@ -19,17 +20,24 @@ const INITIAL_STATE: TWalletStoreState = {
   connectedWallets: []
 }
 
-const WalletContext = createContext<TWallet>({
+const INITIAL_WALLET_STATE = /* #__PURE__ */ Object.values(WALLET_NAMES).reduce((acc, walletName) => ({ ...acc, [walletName]: INITIAL_STATE }), {} as TWalletState)
+
+const WalletContext = /* #__PURE__ */ createContext<TWallet>({
   ...INITIAL_STATE,
   walletAddressesHistory: {},
+  walletState: INITIAL_WALLET_STATE,
   restore: () => Promise.reject(),
   connect: () => Promise.reject(),
   changeNetwork: () => Promise.reject(),
   sendTx: () => Promise.reject(),
+  signMessage: () => Promise.reject(),
+  signTypedData: () => Promise.reject(),
   disconnect: () => {},
-  estimateGas: () => Promise.reject(),
+  getNonce: () => Promise.reject(),
   waitForTransaction: () => Promise.reject(),
-  getTransaction: () => Promise.reject()
+  getTransaction: () => Promise.reject(),
+  erc20SendToken: () => Promise.resolve(),
+  changeEvmNetwork: () => Promise.resolve()
 })
 
-export { WalletContext, INITIAL_STATE }
+export { WalletContext, INITIAL_STATE, INITIAL_WALLET_STATE }

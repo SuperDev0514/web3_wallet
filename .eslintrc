@@ -1,6 +1,10 @@
 {
-  "extends": "@antfu",
+  "extends": [
+    "@antfu",
+    "plugin:import/recommended",
+  ],
   "rules": {
+    "no-console": "off",
     "brace-style": [
       "error",
       "1tbs"
@@ -26,6 +30,30 @@
     "@typescript-eslint/consistent-type-definitions": [
       "error",
       "type"
-    ]
+    ],
+    /**
+     * ESLint import rules
+     */
+    "import/no-extraneous-dependencies": 1,
+    "import/namespace": "off"
+  },
+  "settings": {
+    "import/core-modules": [
+      "react"
+    ],
+    "import/resolver": {
+      "alias": {
+        "map": [
+          [
+            "@",
+            "./src"
+          ]
+        ],
+        "extensions": [
+          ".ts",
+          ".tsx"
+        ]
+      }
+    }
   }
 }
